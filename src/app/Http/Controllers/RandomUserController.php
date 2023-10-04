@@ -14,9 +14,27 @@ class RandomUserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        // declarations
+        $fields = [
+            'name',
+            'surname',
+            'email',
+            'phone',
+            'country'
+        ];
+        $field = (strtolower($request->field)) ?: 'surname'; # if field is empty set surname
+        $orderBy = (strtolower($request->orderBy) == 'asc') ? 'asc' : 'desc'; # if not asc set desc
+
+        // errors
+        if ( !in_array($field, $fields) ) # if field not exist
+            throw new Exception("This field does not exist", 403);
+
+        // get and sort users
+        $users = User::orderBy('surname', $orderBy)->get();
+
+        return response()->json($users, 200);
     }
 
     /**
@@ -31,7 +49,7 @@ class RandomUserController extends Controller
 
             // errors
             if ($limit < 0)
-                throw new Exception("Limit cannot be less than 1", 1);
+                throw new Exception("Limit cannot be less than 1", 403);
 
             // get users data
             for ($i = 0; $i < $limit; $i++) {

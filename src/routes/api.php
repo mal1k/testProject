@@ -21,3 +21,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::resource('randomUser', RandomUserController::class);
+Route::post('importUsers', [RandomUserController::class, 'importUsers']);

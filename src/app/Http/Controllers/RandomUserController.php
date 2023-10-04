@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UserRequest;
+use App\Http\Requests\UserStoreRequest;
 use App\Mail\WelcomeEmail;
 use App\Models\User;
 use Exception;
@@ -16,7 +18,7 @@ class RandomUserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(UserRequest $request)
     {
         try {
             // declarations
@@ -27,26 +29,15 @@ class RandomUserController extends Controller
                 'phone',
                 'country'
             ];
-            $field = (strtolower($request->field)) ?: 'surname'; # if field is empty set surname
-            $orderBy = (strtolower($request->orderBy) == 'asc') ? 'asc' : 'desc'; # if not asc set desc
-            $type = (strtolower($request->type) == 'json') ? 'json' : 'xml'; # if not asc set desc
-            $limit = ($request->limit);
-            $page = ($request->page) ?: 1;
-            $skip = ($page-1) * $limit; # skip elements
-
-            // errors
-            if ( !in_array($field, $fields) ) # if field not exist
-                throw new Exception("This field does not exist", 403);
-            if ($limit < 0)
-                throw new Exception("Limit cannot be less than 1", 403);
-            if (!is_int($limit))
-                throw new Exception("Limit need to be integer", 403);
+            $field = $request->field ?: 'surname'; # if field is empty set surname
+            $orderBy = $request->orderBy ?: 'desc'; # if not asc set desc
+            $type = $request->type ?: 'xml'; # if empty type set xml
 
             // sort users
             $sql = User::orderBy($field, $orderBy);
 
             // get users
-            $users = $sql->paginate($limit, ['*'], 'page', $page);
+            $users = $sql->paginate($request->limit, ['*'], 'page', $request->page);
 
             // if user want to get users in json
             if ($type == 'json') {
@@ -86,18 +77,12 @@ class RandomUserController extends Controller
     /**
      * Store a newly created resource.
      */
-    public function store(Request $request)
+    public function store(UserStoreRequest $request)
     {
         try {
             // declarations
             $limit = ($request->limit) ?: 10;
             $users = [];
-
-            // errors
-            if ($limit < 0)
-                throw new Exception("Limit cannot be less than 1", 403);
-            if (!is_int($limit))
-                throw new Exception("Limit need to be integer", 403);
 
             // get users data
             for ($i = 0; $i < $limit; $i++) {

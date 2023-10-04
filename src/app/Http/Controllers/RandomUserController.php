@@ -6,8 +6,10 @@ use App\Mail\WelcomeEmail;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use SimpleXMLElement;
 
 class RandomUserController extends Controller
 {
@@ -26,6 +28,7 @@ class RandomUserController extends Controller
         ];
         $field = (strtolower($request->field)) ?: 'surname'; # if field is empty set surname
         $orderBy = (strtolower($request->orderBy) == 'asc') ? 'asc' : 'desc'; # if not asc set desc
+        $type = (strtolower($request->type) == 'json') ? 'json' : 'xml'; # if not asc set desc
 
         // errors
         if ( !in_array($field, $fields) ) # if field not exist
@@ -34,7 +37,23 @@ class RandomUserController extends Controller
         // get and sort users
         $users = User::orderBy('surname', $orderBy)->get();
 
-        return response()->json($users, 200);
+        // if user want to get users in json
+        if ($type == 'json')
+            return response()->json($users, 200);
+
+        // Create a root XML element
+        $xml = new SimpleXMLElement('<users></users>');
+
+        // users loop and add them to the XML structure
+        foreach ($users as $user) {
+            $xmlUser = $xml->addChild('user');
+            $xmlUser->addChild('name', $user->name);
+            $xmlUser->addChild('surname', $user->surname);
+            $xmlUser->addChild('email', $user->email);
+            $xmlUser->addChild('phone', $user->phone);
+            $xmlUser->addChild('country', $user->country);
+        }
+        return response($xml->asXML())->header('Content-Type', 'application/xml');
     }
 
     /**

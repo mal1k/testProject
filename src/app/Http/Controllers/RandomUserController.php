@@ -18,42 +18,69 @@ class RandomUserController extends Controller
      */
     public function index(Request $request)
     {
-        // declarations
-        $fields = [
-            'name',
-            'surname',
-            'email',
-            'phone',
-            'country'
-        ];
-        $field = (strtolower($request->field)) ?: 'surname'; # if field is empty set surname
-        $orderBy = (strtolower($request->orderBy) == 'asc') ? 'asc' : 'desc'; # if not asc set desc
-        $type = (strtolower($request->type) == 'json') ? 'json' : 'xml'; # if not asc set desc
+        try {
+            // declarations
+            $fields = [
+                'name',
+                'surname',
+                'email',
+                'phone',
+                'country'
+            ];
+            $field = (strtolower($request->field)) ?: 'surname'; # if field is empty set surname
+            $orderBy = (strtolower($request->orderBy) == 'asc') ? 'asc' : 'desc'; # if not asc set desc
+            $type = (strtolower($request->type) == 'json') ? 'json' : 'xml'; # if not asc set desc
+            $limit = ($request->limit);
+            $page = ($request->page) ?: 1;
+            $skip = ($page-1) * $limit; # skip elements
 
-        // errors
-        if ( !in_array($field, $fields) ) # if field not exist
-            throw new Exception("This field does not exist", 403);
+            // errors
+            if ( !in_array($field, $fields) ) # if field not exist
+                throw new Exception("This field does not exist", 403);
+            if ($limit < 0)
+                throw new Exception("Limit cannot be less than 1", 403);
+            if (!is_int($limit))
+                throw new Exception("Limit need to be integer", 403);
 
-        // get and sort users
-        $users = User::orderBy('surname', $orderBy)->get();
+            // sort users
+            $sql = User::orderBy($field, $orderBy);
 
-        // if user want to get users in json
-        if ($type == 'json')
-            return response()->json($users, 200);
+            // get users
+            $users = $sql->paginate($limit, ['*'], 'page', $page);
 
-        // Create a root XML element
-        $xml = new SimpleXMLElement('<users></users>');
+            // if user want to get users in json
+            if ($type == 'json') {
+                $answer['paginate']['currentPage'] = $users->currentPage();
+                $answer['paginate']['lastPage'] = $users->lastPage();
+                $answer['paginate']['totalUsers'] = $users->total();
+                $answer['users'] = $users->items();
+                return response()->json($answer, 200);
+            }
 
-        // users loop and add them to the XML structure
-        foreach ($users as $user) {
-            $xmlUser = $xml->addChild('user');
-            $xmlUser->addChild('name', $user->name);
-            $xmlUser->addChild('surname', $user->surname);
-            $xmlUser->addChild('email', $user->email);
-            $xmlUser->addChild('phone', $user->phone);
-            $xmlUser->addChild('country', $user->country);
+            // create a root XML element
+            $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><root></root>');
+
+            // paginate section
+            $xmlPaginate = $xml->addChild('paginate');
+            $xmlPaginate->addChild('currentPage', $users->currentPage());
+            $xmlPaginate->addChild('lastPage', $users->lastPage());
+            $xmlPaginate->addChild('totalUsers', $users->total());
+
+            // add users section
+            $xmlUsers = $xml->addChild('users');
+
+            foreach ($users as $user) {
+                $xmlUser = $xmlUsers->addChild('user');
+                $xmlUser->addChild('name', $user->name);
+                $xmlUser->addChild('surname', $user->surname);
+                $xmlUser->addChild('email', $user->email);
+                $xmlUser->addChild('phone', $user->phone);
+                $xmlUser->addChild('country', $user->country);
+            }
+            return response($xml->asXML())->header('Content-Type', 'application/xml');
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 403);
         }
-        return response($xml->asXML())->header('Content-Type', 'application/xml');
     }
 
     /**
@@ -69,6 +96,8 @@ class RandomUserController extends Controller
             // errors
             if ($limit < 0)
                 throw new Exception("Limit cannot be less than 1", 403);
+            if (!is_int($limit))
+                throw new Exception("Limit need to be integer", 403);
 
             // get users data
             for ($i = 0; $i < $limit; $i++) {
